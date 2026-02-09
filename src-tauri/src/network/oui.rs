@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 /// MAC address vendor lookup using the IEEE OUI database.
 /// Maps the first 3 bytes of a MAC address to an organization name.
+#[derive(Clone)]
 pub struct OuiDatabase {
     entries: HashMap<[u8; 3], String>,
 }

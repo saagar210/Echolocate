@@ -1,4 +1,5 @@
 use tauri::{AppHandle, State};
+use tokio_util::sync::CancellationToken;
 
 use crate::db::queries::scans as db_scans;
 use crate::scanner::{orchestrator, ScanConfig, ScanResult};
@@ -10,13 +11,34 @@ pub async fn start_scan(
     state: State<'_, AppState>,
     config: ScanConfig,
 ) -> Result<ScanResult, String> {
-    orchestrator::run_scan(app, &state, config).await
+    let cancel = CancellationToken::new();
+
+    // Store the cancellation token so stop_scan can trigger it
+    {
+        let mut guard = state.scan_cancel.lock().map_err(|e| e.to_string())?;
+        *guard = Some(cancel.clone());
+    }
+
+    let result = orchestrator::run_scan(app, &state, config, cancel).await;
+
+    // Clear the token after scan completes
+    {
+        let mut guard = state.scan_cancel.lock().map_err(|e| e.to_string())?;
+        *guard = None;
+    }
+
+    result
 }
 
 #[tauri::command]
-pub async fn stop_scan(_scan_id: String) -> Result<(), String> {
-    // TODO: Implement scan cancellation via CancellationToken
-    log::warn!("Scan cancellation not yet implemented");
+pub async fn stop_scan(state: State<'_, AppState>) -> Result<(), String> {
+    let guard = state.scan_cancel.lock().map_err(|e| e.to_string())?;
+    if let Some(ref token) = *guard {
+        token.cancel();
+        log::info!("Scan cancellation requested");
+    } else {
+        log::warn!("No active scan to cancel");
+    }
     Ok(())
 }
 

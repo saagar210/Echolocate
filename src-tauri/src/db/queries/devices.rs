@@ -172,6 +172,15 @@ pub fn delete_device(conn: &Connection, device_id: &str) -> Result<(), rusqlite:
     Ok(())
 }
 
+/// Update hostname for a device (only if it doesn't already have one).
+pub fn update_hostname(conn: &Connection, device_id: &str, hostname: &str) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "UPDATE devices SET hostname = ?1 WHERE id = ?2 AND hostname IS NULL",
+        params![hostname, device_id],
+    )?;
+    Ok(())
+}
+
 /// Update last_seen timestamp for a device.
 pub fn touch_device(conn: &Connection, device_id: &str) -> Result<(), rusqlite::Error> {
     conn.execute(
