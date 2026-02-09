@@ -1,8 +1,11 @@
 use std::time::Instant;
 
 use tauri::{AppHandle, Emitter};
+use tokio_util::sync::CancellationToken;
 
+use crate::alerts::{engine as alert_engine, notifier};
 use crate::db::queries::{devices as db_devices, scans as db_scans, ports as db_ports};
+use crate::network::resolver;
 use crate::scanner::{passive, ping, port, ScanConfig, ScanResult, ScanType, PortRange};
 use crate::state::AppState;
 
@@ -17,13 +20,21 @@ struct ScanProgress {
 }
 
 /// Run a scan based on the provided configuration.
+/// Supports cancellation via the provided CancellationToken.
 pub async fn run_scan(
     app: AppHandle,
     state: &AppState,
     config: ScanConfig,
+    cancel: CancellationToken,
 ) -> Result<ScanResult, String> {
     let scan_id = uuid::Uuid::new_v4().to_string();
     let start = Instant::now();
+
+    // Snapshot previous device state for alert diffing
+    let previous_devices = {
+        let conn = state.conn().map_err(|e| e.to_string())?;
+        db_devices::get_all_devices(&conn).map_err(|e| e.to_string())?
+    };
 
     // Record scan start
     {
@@ -34,11 +45,20 @@ pub async fn run_scan(
 
     emit_progress(&app, &scan_id, "discovery", 0, 0.0);
 
+    // Check cancellation between phases
+    if cancel.is_cancelled() {
+        return fail_scan(state, &scan_id, "Scan cancelled");
+    }
+
     // Phase 1: Device discovery (passive ARP table scan)
     let discovered = passive::scan_arp_table();
     let device_count = discovered.len() as u32;
 
     emit_progress(&app, &scan_id, "discovery", device_count, 20.0);
+
+    if cancel.is_cancelled() {
+        return fail_scan(state, &scan_id, "Scan cancelled");
+    }
 
     // Phase 2: Ping sweep for latency (if not passive-only)
     let ping_results = if !matches!(config.scan_type, ScanType::Passive) {
@@ -49,9 +69,31 @@ pub async fn run_scan(
         Vec::new()
     };
 
+    if cancel.is_cancelled() {
+        return fail_scan(state, &scan_id, "Scan cancelled");
+    }
+
+    // Phase 3: Hostname resolution (concurrent, 2s timeout per host)
+    emit_progress(&app, &scan_id, "resolving", device_count, 40.0);
+    let ips_for_resolve: Vec<String> = discovered
+        .iter()
+        .filter(|d| d.hostname.is_none())
+        .map(|d| d.ip.clone())
+        .collect();
+
+    let hostname_results = if !ips_for_resolve.is_empty() {
+        resolver::resolve_hostnames(&ips_for_resolve).await
+    } else {
+        Vec::new()
+    };
+
+    if cancel.is_cancelled() {
+        return fail_scan(state, &scan_id, "Scan cancelled");
+    }
+
     emit_progress(&app, &scan_id, "enriching", device_count, 50.0);
 
-    // Phase 3: Enrich with OUI data and persist to database
+    // Phase 4: Enrich with OUI data and persist to database
     let mut new_device_count = 0u32;
 
     {
@@ -69,6 +111,14 @@ pub async fn run_scan(
                 .find(|(ip, _)| ip == &device.ip)
                 .and_then(|(_, lat)| *lat);
 
+            // Merge resolved hostname (prefer ARP-discovered hostname)
+            let hostname = device.hostname.clone().or_else(|| {
+                hostname_results
+                    .iter()
+                    .find(|(ip, _)| ip == &device.ip)
+                    .and_then(|(_, h)| h.clone())
+            });
+
             // Check if device already exists (by MAC)
             let existing_id = device
                 .mac
@@ -78,10 +128,15 @@ pub async fn run_scan(
             let device_id = if let Some(id) = existing_id {
                 // Update existing device
                 db_devices::touch_device(&conn, &id).map_err(|e| e.to_string())?;
-                if let Some(ref _ip) = Some(&device.ip) {
-                    db_devices::upsert_device_ip(&conn, &id, &device.ip)
+                db_devices::upsert_device_ip(&conn, &id, &device.ip)
+                    .map_err(|e| e.to_string())?;
+
+                // Update hostname if we resolved one and device doesn't have one yet
+                if let Some(ref hn) = hostname {
+                    db_devices::update_hostname(&conn, &id, hn)
                         .map_err(|e| e.to_string())?;
                 }
+
                 id
             } else {
                 // Insert new device
@@ -92,7 +147,7 @@ pub async fn run_scan(
                     &id,
                     device.mac.as_deref(),
                     vendor.as_deref(),
-                    device.hostname.as_deref(),
+                    hostname.as_deref(),
                     device_type,
                     device.is_gateway,
                     Some(&device.ip),
@@ -113,9 +168,33 @@ pub async fn run_scan(
                 let _ = app.emit("scan:device-discovered", &full_device);
             }
         }
+
+        // Mark devices as departed (previously online, not seen this scan)
+        let current_macs: Vec<&str> = discovered
+            .iter()
+            .filter_map(|d| d.mac.as_deref())
+            .collect();
+
+        for prev in &previous_devices {
+            if prev.is_online {
+                let still_here = prev
+                    .mac_address
+                    .as_deref()
+                    .map(|mac| current_macs.contains(&mac))
+                    .unwrap_or(false);
+
+                if !still_here {
+                    let _ = app.emit("device:departed", &prev);
+                }
+            }
+        }
     }
 
-    // Phase 4: Port scan (full scan only)
+    if cancel.is_cancelled() {
+        return fail_scan(state, &scan_id, "Scan cancelled");
+    }
+
+    // Phase 5: Port scan (full scan only)
     if matches!(config.scan_type, ScanType::Full) {
         emit_progress(&app, &scan_id, "port_scan", device_count, 60.0);
 
@@ -126,6 +205,10 @@ pub async fn run_scan(
         };
 
         for (i, device) in discovered.iter().enumerate() {
+            if cancel.is_cancelled() {
+                return fail_scan(state, &scan_id, "Scan cancelled");
+            }
+
             let progress = 60.0 + (30.0 * (i as f64 / discovered.len().max(1) as f64));
             emit_progress(&app, &scan_id, "port_scan", device_count, progress);
 
@@ -134,7 +217,6 @@ pub async fn run_scan(
             if !results.is_empty() {
                 let conn = state.conn().map_err(|e| e.to_string())?;
 
-                // Find the device ID for this IP
                 let device_id = device.mac.as_deref()
                     .and_then(|mac| db_devices::get_device_by_mac(&conn, mac).ok().flatten());
 
@@ -153,6 +235,38 @@ pub async fn run_scan(
                         .map_err(|e| e.to_string())?;
                     }
                 }
+            }
+        }
+    }
+
+    // Phase 6: Alert evaluation
+    emit_progress(&app, &scan_id, "alerts", device_count, 95.0);
+
+    {
+        let conn = state.conn().map_err(|e| e.to_string())?;
+        let current_devices = db_devices::get_all_devices(&conn).map_err(|e| e.to_string())?;
+
+        match alert_engine::evaluate_alerts(&conn, &previous_devices, &current_devices) {
+            Ok(generated) => {
+                // Emit each alert to frontend
+                for alert in &generated {
+                    let _ = app.emit("alert:new", &AlertEvent {
+                        alert_type: alert.alert_type.clone(),
+                        device_id: alert.device_id.clone(),
+                        message: alert.message.clone(),
+                        severity: alert.severity.clone(),
+                    });
+                }
+
+                // Send desktop notifications
+                notifier::notify(&app, &generated);
+
+                if !generated.is_empty() {
+                    log::info!("Generated {} alerts from scan", generated.len());
+                }
+            }
+            Err(e) => {
+                log::error!("Alert evaluation failed: {}", e);
             }
         }
     }
@@ -184,6 +298,16 @@ pub async fn run_scan(
     Ok(result)
 }
 
+/// Alert event emitted to the frontend.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AlertEvent {
+    alert_type: String,
+    device_id: Option<String>,
+    message: String,
+    severity: String,
+}
+
 fn emit_progress(app: &AppHandle, scan_id: &str, phase: &str, devices_found: u32, percent: f64) {
     let _ = app.emit("scan:progress", ScanProgress {
         scan_id: scan_id.to_string(),
@@ -200,4 +324,12 @@ fn scan_type_str(scan_type: &ScanType) -> &'static str {
         ScanType::PortOnly => "port_only",
         ScanType::Passive => "passive",
     }
+}
+
+/// Mark a scan as failed in the DB and return an error.
+fn fail_scan(state: &AppState, scan_id: &str, reason: &str) -> Result<ScanResult, String> {
+    if let Ok(conn) = state.conn() {
+        let _ = db_scans::fail_scan(&conn, scan_id);
+    }
+    Err(reason.to_string())
 }

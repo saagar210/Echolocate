@@ -14,8 +14,8 @@ export async function startScan(config: ScanConfig): Promise<ScanResult> {
 	return invoke('start_scan', { config });
 }
 
-export async function stopScan(scanId: string): Promise<void> {
-	return invoke('stop_scan', { scanId });
+export async function stopScan(): Promise<void> {
+	return invoke('stop_scan');
 }
 
 export async function getScanHistory(limit: number = 50): Promise<ScanSummary[]> {

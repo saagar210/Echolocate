@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
 
 use crate::network::oui::OuiDatabase;
 
@@ -11,7 +12,12 @@ use crate::network::oui::OuiDatabase;
 pub struct AppState {
     pub db: Pool<SqliteConnectionManager>,
     pub oui_db: OuiDatabase,
+    /// Handle to the background monitoring task, if active.
     pub monitor_handle: Mutex<Option<JoinHandle<()>>>,
+    /// Token to cancel the monitoring loop.
+    pub monitor_cancel: Mutex<Option<CancellationToken>>,
+    /// Token to cancel the current in-progress scan.
+    pub scan_cancel: Mutex<Option<CancellationToken>>,
 }
 
 impl AppState {
@@ -20,6 +26,8 @@ impl AppState {
             db,
             oui_db,
             monitor_handle: Mutex::new(None),
+            monitor_cancel: Mutex::new(None),
+            scan_cancel: Mutex::new(None),
         }
     }
 
