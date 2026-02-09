@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+build/
+dist/
+.svelte-kit/
+
+# Rust
+src-tauri/target/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Tauri
+src-tauri/WixTools/
+# src-tauri/icons/ — tracked (generated app icons)
+
+# OUI database (large, downloaded separately)
+# src-tauri/resources/oui.csv

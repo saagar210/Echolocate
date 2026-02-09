@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+	--color-bg-primary: #0f172a;
+	--color-bg-secondary: #1e293b;
+	--color-bg-tertiary: #334155;
+	--color-text-primary: #f1f5f9;
+	--color-text-secondary: #94a3b8;
+	--color-text-muted: #64748b;
+	--color-accent: #38bdf8;
+	--color-accent-hover: #7dd3fc;
+	--color-success: #22c55e;
+	--color-warning: #eab308;
+	--color-danger: #ef4444;
+	--color-info: #3b82f6;
+	--color-border: #334155;
+	--color-node-router: #f59e0b;
+	--color-node-macos: #3b82f6;
+	--color-node-linux: #22c55e;
+	--color-node-windows: #a855f7;
+	--color-node-phone: #ec4899;
+	--color-node-iot: #14b8a6;
+	--color-node-unknown: #64748b;
+}
+
+html {
+	background-color: var(--color-bg-primary);
+	color: var(--color-text-primary);
+	font-family:
+		ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+	margin: 0;
+	overflow: hidden;
+	height: 100vh;
+}
+
+/* Monospace for network data */
+.font-mono {
+	font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+}
