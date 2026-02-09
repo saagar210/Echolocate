@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 use crate::alerts::{engine as alert_engine, notifier};
 use crate::db::queries::{devices as db_devices, scans as db_scans, ports as db_ports};
 use crate::network::resolver;
-use crate::scanner::{passive, ping, port, ScanConfig, ScanResult, ScanType, PortRange};
+use crate::scanner::{fingerprint, passive, ping, port, ScanConfig, ScanResult, ScanType, PortRange};
 use crate::state::AppState;
 
 /// Progress update sent to the frontend during a scan.
@@ -239,7 +239,61 @@ pub async fn run_scan(
         }
     }
 
-    // Phase 6: Alert evaluation
+    // Phase 6: OS fingerprinting & device classification (full scan only)
+    if matches!(config.scan_type, ScanType::Full) {
+        emit_progress(&app, &scan_id, "fingerprinting", device_count, 92.0);
+
+        let conn = state.conn().map_err(|e| e.to_string())?;
+
+        for device in &discovered {
+            let device_id = device.mac.as_deref()
+                .and_then(|mac| db_devices::get_device_by_mac(&conn, mac).ok().flatten());
+
+            if let Some(ref dev_id) = device_id {
+                // Get the ports we just scanned for this device
+                let port_results: Vec<port::PortResult> = db_ports::get_latest_ports(&conn, dev_id)
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|p| port::PortResult {
+                        port: p.port,
+                        state: port::PortState::Open,
+                        service_name: p.service_name.clone(),
+                        banner: None,
+                    })
+                    .collect();
+
+                let vendor = device.mac.as_deref()
+                    .and_then(|mac| state.oui_db.lookup(mac))
+                    .map(|s| s.to_string());
+
+                // OS fingerprinting
+                if let Some(os_guess) = fingerprint::guess_os(&port_results, vendor.as_deref()) {
+                    db_devices::update_os_guess(&conn, dev_id, &os_guess.os, os_guess.confidence)
+                        .map_err(|e| e.to_string())?;
+                }
+
+                // Device classification
+                let current_os = db_devices::get_device_by_id(&conn, dev_id)
+                    .ok()
+                    .flatten()
+                    .and_then(|d| d.os_guess);
+
+                let device_type = fingerprint::classify_device(
+                    &port_results,
+                    vendor.as_deref(),
+                    current_os.as_deref(),
+                    device.is_gateway,
+                );
+
+                if device_type != "unknown" {
+                    db_devices::update_device_type(&conn, dev_id, device_type)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+        }
+    }
+
+    // Phase 7: Alert evaluation
     emit_progress(&app, &scan_id, "alerts", device_count, 95.0);
 
     {

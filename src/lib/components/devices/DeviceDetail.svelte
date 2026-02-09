@@ -3,6 +3,7 @@
 	import { updateDevice, deleteDevice, pingDevice } from '$lib/services/tauri-bridge';
 	import { upsertDevice, removeDevice } from '$lib/stores/devices.svelte';
 	import PortList from './PortList.svelte';
+	import LatencyChart from './LatencyChart.svelte';
 	import StatusBadge from '../ui/StatusBadge.svelte';
 
 	let {
@@ -14,9 +15,14 @@
 	} = $props();
 
 	let editingName = $state(false);
-	let nameInput = $state(device.customName ?? device.hostname ?? '');
+	let nameInput = $state('');
 	let pingResult = $state<{ latency: number | null; success: boolean } | null>(null);
 	let pinging = $state(false);
+
+	// Reset nameInput when device changes
+	$effect(() => {
+		nameInput = device.customName ?? device.hostname ?? '';
+	});
 
 	function displayName(d: Device): string {
 		return d.customName ?? d.hostname ?? d.vendor ?? d.currentIp ?? 'Unknown';
@@ -190,6 +196,9 @@
 				<PortList ports={device.openPorts} />
 			</section>
 		{/if}
+
+		<!-- Latency chart -->
+		<LatencyChart deviceId={device.id} />
 
 		<!-- Actions section -->
 		<section>

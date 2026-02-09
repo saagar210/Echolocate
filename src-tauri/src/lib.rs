@@ -60,6 +60,8 @@ pub fn run() {
             commands::settings::stop_monitor,
             commands::settings::get_latency_history,
             commands::settings::ping_device,
+            commands::export::export_devices,
+            commands::export::import_devices,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

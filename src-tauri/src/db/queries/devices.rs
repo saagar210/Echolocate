@@ -181,6 +181,24 @@ pub fn update_hostname(conn: &Connection, device_id: &str, hostname: &str) -> Re
     Ok(())
 }
 
+/// Update OS guess and confidence for a device.
+pub fn update_os_guess(conn: &Connection, device_id: &str, os_guess: &str, confidence: f64) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "UPDATE devices SET os_guess = ?1, os_confidence = ?2 WHERE id = ?3",
+        params![os_guess, confidence, device_id],
+    )?;
+    Ok(())
+}
+
+/// Update device type classification.
+pub fn update_device_type(conn: &Connection, device_id: &str, device_type: &str) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "UPDATE devices SET device_type = ?1 WHERE id = ?2 AND device_type = 'unknown'",
+        params![device_type, device_id],
+    )?;
+    Ok(())
+}
+
 /// Update last_seen timestamp for a device.
 pub fn touch_device(conn: &Connection, device_id: &str) -> Result<(), rusqlite::Error> {
     conn.execute(

@@ -97,3 +97,13 @@ export async function getLatencyHistory(deviceId: string, hours: number = 24): P
 export async function pingDevice(ip: string): Promise<PingResult> {
 	return invoke('ping_device', { ip });
 }
+
+// ── Export/Import ──
+
+export async function exportDevices(): Promise<string> {
+	return invoke('export_devices');
+}
+
+export async function importDevices(jsonData: string): Promise<{ imported: number; skipped: number }> {
+	return invoke('import_devices', { jsonData });
+}

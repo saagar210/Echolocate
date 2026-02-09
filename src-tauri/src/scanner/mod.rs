@@ -1,3 +1,4 @@
+pub mod fingerprint;
 pub mod orchestrator;
 pub mod passive;
 pub mod ping;
