@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { settings, interfaces, setSettings } from '$lib/stores/settings.svelte';
-	import { updateSettings } from '$lib/services/tauri-bridge';
+	import { updateSettings, exportDevices, importDevices } from '$lib/services/tauri-bridge';
 
 	let localSettings = $derived({ ...$settings });
 	let saving = $state(false);
+	let exportStatus = $state('');
+	let importStatus = $state('');
 
 	async function handleSave() {
 		saving = true;
@@ -14,6 +16,44 @@
 			console.error('Failed to save settings:', e);
 		}
 		saving = false;
+	}
+
+	async function handleExport() {
+		exportStatus = 'Exporting...';
+		try {
+			const json = await exportDevices();
+			const blob = new Blob([json], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `echolocate-export-${new Date().toISOString().slice(0, 10)}.json`;
+			a.click();
+			URL.revokeObjectURL(url);
+			exportStatus = 'Exported!';
+		} catch (e) {
+			exportStatus = `Export failed: ${e}`;
+		}
+		setTimeout(() => { exportStatus = ''; }, 3000);
+	}
+
+	async function handleImport() {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = '.json';
+		input.onchange = async () => {
+			const file = input.files?.[0];
+			if (!file) return;
+			importStatus = 'Importing...';
+			try {
+				const text = await file.text();
+				const result = await importDevices(text);
+				importStatus = `Imported ${result.imported} devices (${result.skipped} skipped)`;
+			} catch (e) {
+				importStatus = `Import failed: ${e}`;
+			}
+			setTimeout(() => { importStatus = ''; }, 5000);
+		};
+		input.click();
 	}
 </script>
 
@@ -102,11 +142,38 @@
 		</div>
 	</section>
 
-	<button
-		onclick={handleSave}
-		disabled={saving}
-		class="rounded-lg bg-accent px-6 py-2 text-sm font-medium text-bg-primary hover:bg-accent-hover disabled:opacity-50"
-	>
-		{saving ? 'Saving...' : 'Save Settings'}
-	</button>
+	<div class="flex gap-3 mb-8">
+		<button
+			onclick={handleSave}
+			disabled={saving}
+			class="rounded-lg bg-accent px-6 py-2 text-sm font-medium text-bg-primary hover:bg-accent-hover disabled:opacity-50"
+		>
+			{saving ? 'Saving...' : 'Save Settings'}
+		</button>
+	</div>
+
+	<!-- Data Management -->
+	<section class="mb-8">
+		<h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-text-muted">Data</h3>
+		<div class="flex gap-3">
+			<button
+				onclick={handleExport}
+				class="rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:bg-bg-tertiary"
+			>
+				Export Devices
+			</button>
+			<button
+				onclick={handleImport}
+				class="rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:bg-bg-tertiary"
+			>
+				Import Devices
+			</button>
+		</div>
+		{#if exportStatus}
+			<p class="mt-2 text-xs text-text-secondary">{exportStatus}</p>
+		{/if}
+		{#if importStatus}
+			<p class="mt-2 text-xs text-text-secondary">{importStatus}</p>
+		{/if}
+	</section>
 </div>

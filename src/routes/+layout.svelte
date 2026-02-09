@@ -2,10 +2,11 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import '../app.css';
-	import { getDevices, getAlerts, getSettings, getInterfaces, getAlertRules } from '$lib/services/tauri-bridge';
+	import { getDevices, getAlerts, getSettings, getInterfaces, getAlertRules, startScan } from '$lib/services/tauri-bridge';
 	import { subscribeAll, unsubscribeAll } from '$lib/services/tauri-events';
 	import { setDevices, upsertDevice, markDeparted, devices, onlineCount } from '$lib/stores/devices.svelte';
 	import { updateProgress, completeScan, updateMonitorStatus, isScanning } from '$lib/stores/scan.svelte';
+	import { selectedDeviceId } from '$lib/stores/devices.svelte';
 	import { setAlerts, addAlert, unreadCount } from '$lib/stores/alerts.svelte';
 	import { setSettings, setInterfaces } from '$lib/stores/settings.svelte';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
@@ -58,7 +59,29 @@
 		}
 	});
 
+	function handleKeydown(e: KeyboardEvent) {
+		// Cmd+R or Ctrl+R: Quick scan (prevent browser refresh)
+		if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
+			e.preventDefault();
+			if (!$isScanning) {
+				isScanning.set(true);
+				startScan({ interfaceId: 'auto', scanType: 'quick', portRange: 'top100' })
+					.catch((err) => console.error('Scan failed:', err))
+					.finally(() => completeScan());
+			}
+		}
+		// Escape: Deselect device
+		if (e.key === 'Escape') {
+			selectedDeviceId.set(null);
+		}
+	}
+
+	onMount(() => {
+		window.addEventListener('keydown', handleKeydown);
+	});
+
 	onDestroy(() => {
+		window.removeEventListener('keydown', handleKeydown);
 		unsubscribeAll(unlisteners);
 	});
 </script>

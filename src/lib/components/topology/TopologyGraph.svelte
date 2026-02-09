@@ -252,6 +252,7 @@
 					class="node cursor-pointer"
 					transform="translate({node.x ?? 0}, {node.y ?? 0})"
 					onclick={(e) => handleNodeClick(e, node)}
+					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNodeClick(e, node); }}
 					onmouseenter={(e) => handleNodeMouseEnter(e, node)}
 					onmouseleave={handleNodeMouseLeave}
 					role="button"
