@@ -4,9 +4,11 @@ use tauri::{AppHandle, Emitter};
 use tokio_util::sync::CancellationToken;
 
 use crate::alerts::{engine as alert_engine, notifier};
-use crate::db::queries::{devices as db_devices, scans as db_scans, ports as db_ports};
+use crate::db::queries::{devices as db_devices, ports as db_ports, scans as db_scans};
 use crate::network::resolver;
-use crate::scanner::{fingerprint, passive, ping, port, ScanConfig, ScanResult, ScanType, PortRange};
+use crate::scanner::{
+    fingerprint, passive, ping, port, PortRange, ScanConfig, ScanResult, ScanType,
+};
 use crate::state::AppState;
 
 /// Progress update sent to the frontend during a scan.
@@ -39,8 +41,13 @@ pub async fn run_scan(
     // Record scan start
     {
         let conn = state.conn().map_err(|e| e.to_string())?;
-        db_scans::create_scan(&conn, &scan_id, Some(&config.interface_id), &scan_type_str(&config.scan_type))
-            .map_err(|e| e.to_string())?;
+        db_scans::create_scan(
+            &conn,
+            &scan_id,
+            Some(&config.interface_id),
+            &scan_type_str(&config.scan_type),
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     emit_progress(&app, &scan_id, "discovery", 0, 0.0);
@@ -128,20 +135,22 @@ pub async fn run_scan(
             let device_id = if let Some(id) = existing_id {
                 // Update existing device
                 db_devices::touch_device(&conn, &id).map_err(|e| e.to_string())?;
-                db_devices::upsert_device_ip(&conn, &id, &device.ip)
-                    .map_err(|e| e.to_string())?;
+                db_devices::upsert_device_ip(&conn, &id, &device.ip).map_err(|e| e.to_string())?;
 
                 // Update hostname if we resolved one and device doesn't have one yet
                 if let Some(ref hn) = hostname {
-                    db_devices::update_hostname(&conn, &id, hn)
-                        .map_err(|e| e.to_string())?;
+                    db_devices::update_hostname(&conn, &id, hn).map_err(|e| e.to_string())?;
                 }
 
                 id
             } else {
                 // Insert new device
                 let id = uuid::Uuid::new_v4().to_string();
-                let device_type = if device.is_gateway { "router" } else { "unknown" };
+                let device_type = if device.is_gateway {
+                    "router"
+                } else {
+                    "unknown"
+                };
                 db_devices::insert_device(
                     &conn,
                     &id,
@@ -159,8 +168,7 @@ pub async fn run_scan(
 
             // Record latency
             if let Some(lat) = latency {
-                db_devices::record_latency(&conn, &device_id, lat)
-                    .map_err(|e| e.to_string())?;
+                db_devices::record_latency(&conn, &device_id, lat).map_err(|e| e.to_string())?;
             }
 
             // Emit device discovered event
@@ -170,10 +178,7 @@ pub async fn run_scan(
         }
 
         // Mark devices as departed (previously online, not seen this scan)
-        let current_macs: Vec<&str> = discovered
-            .iter()
-            .filter_map(|d| d.mac.as_deref())
-            .collect();
+        let current_macs: Vec<&str> = discovered.iter().filter_map(|d| d.mac.as_deref()).collect();
 
         for prev in &previous_devices {
             if prev.is_online {
@@ -184,7 +189,12 @@ pub async fn run_scan(
                     .unwrap_or(false);
 
                 if !still_here {
-                    let _ = app.emit("device:departed", &prev);
+                    let _ = app.emit(
+                        "device:departed",
+                        &DepartedEvent {
+                            device_id: prev.id.clone(),
+                        },
+                    );
                 }
             }
         }
@@ -217,7 +227,9 @@ pub async fn run_scan(
             if !results.is_empty() {
                 let conn = state.conn().map_err(|e| e.to_string())?;
 
-                let device_id = device.mac.as_deref()
+                let device_id = device
+                    .mac
+                    .as_deref()
                     .and_then(|mac| db_devices::get_device_by_mac(&conn, mac).ok().flatten());
 
                 if let Some(ref dev_id) = device_id {
@@ -246,7 +258,9 @@ pub async fn run_scan(
         let conn = state.conn().map_err(|e| e.to_string())?;
 
         for device in &discovered {
-            let device_id = device.mac.as_deref()
+            let device_id = device
+                .mac
+                .as_deref()
                 .and_then(|mac| db_devices::get_device_by_mac(&conn, mac).ok().flatten());
 
             if let Some(ref dev_id) = device_id {
@@ -262,7 +276,9 @@ pub async fn run_scan(
                     })
                     .collect();
 
-                let vendor = device.mac.as_deref()
+                let vendor = device
+                    .mac
+                    .as_deref()
                     .and_then(|mac| state.oui_db.lookup(mac))
                     .map(|s| s.to_string());
 
@@ -304,12 +320,15 @@ pub async fn run_scan(
             Ok(generated) => {
                 // Emit each alert to frontend
                 for alert in &generated {
-                    let _ = app.emit("alert:new", &AlertEvent {
-                        alert_type: alert.alert_type.clone(),
-                        device_id: alert.device_id.clone(),
-                        message: alert.message.clone(),
-                        severity: alert.severity.clone(),
-                    });
+                    let _ = app.emit(
+                        "alert:new",
+                        &AlertEvent {
+                            alert_type: alert.alert_type.clone(),
+                            device_id: alert.device_id.clone(),
+                            message: alert.message.clone(),
+                            severity: alert.severity.clone(),
+                        },
+                    );
                 }
 
                 // Send desktop notifications
@@ -346,7 +365,10 @@ pub async fn run_scan(
 
     log::info!(
         "Scan {} completed: {} devices found, {} new, {}ms",
-        scan_id, device_count, new_device_count, duration_ms
+        scan_id,
+        device_count,
+        new_device_count,
+        duration_ms
     );
 
     Ok(result)
@@ -362,13 +384,23 @@ struct AlertEvent {
     severity: String,
 }
 
+/// Departed device payload emitted to the frontend.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DepartedEvent {
+    device_id: String,
+}
+
 fn emit_progress(app: &AppHandle, scan_id: &str, phase: &str, devices_found: u32, percent: f64) {
-    let _ = app.emit("scan:progress", ScanProgress {
-        scan_id: scan_id.to_string(),
-        phase: phase.to_string(),
-        devices_found,
-        percent_complete: percent,
-    });
+    let _ = app.emit(
+        "scan:progress",
+        ScanProgress {
+            scan_id: scan_id.to_string(),
+            phase: phase.to_string(),
+            devices_found,
+            percent_complete: percent,
+        },
+    );
 }
 
 fn scan_type_str(scan_type: &ScanType) -> &'static str {

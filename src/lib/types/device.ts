@@ -1,3 +1,5 @@
+import type { SimulationNodeDatum, SimulationLinkDatum } from 'd3-force';
+
 export type DeviceType = 'router' | 'computer' | 'phone' | 'tablet' | 'iot' | 'printer' | 'unknown';
 
 export interface Device {
@@ -36,7 +38,7 @@ export interface DeviceUpdate {
 }
 
 /** Node representation for d3-force graph */
-export interface DeviceNode extends d3.SimulationNodeDatum {
+export interface DeviceNode extends SimulationNodeDatum {
 	id: string;
 	device: Device;
 	radius: number;
@@ -45,7 +47,7 @@ export interface DeviceNode extends d3.SimulationNodeDatum {
 }
 
 /** Edge representation for d3-force graph */
-export interface DeviceLink extends d3.SimulationLinkDatum<DeviceNode> {
+export interface DeviceLink extends SimulationLinkDatum<DeviceNode> {
 	source: string | DeviceNode;
 	target: string | DeviceNode;
 	latencyMs: number | null;

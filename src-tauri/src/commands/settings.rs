@@ -3,7 +3,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::db::queries::settings as db_settings;
 use crate::network::interface;
-use crate::scanner::{orchestrator, ping, ScanConfig, ScanType, PortRange};
+use crate::scanner::{orchestrator, ping, PortRange, ScanConfig, ScanType};
 use crate::state::AppState;
 
 #[tauri::command]
@@ -30,8 +30,14 @@ pub fn update_settings(
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct MonitorStatus {
-    active: bool,
-    next_scan_in_secs: Option<u64>,
+    is_running: bool,
+    next_scan_in: Option<u64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ScanError {
+    message: String,
 }
 
 #[tauri::command]
@@ -53,11 +59,17 @@ pub async fn start_monitor(
     let app_clone = app.clone();
 
     let handle = tokio::spawn(async move {
-        log::info!("Continuous monitoring started (interval: {}s)", interval_secs);
-        let _ = app_clone.emit("monitor:status", MonitorStatus {
-            active: true,
-            next_scan_in_secs: Some(interval_secs),
-        });
+        log::info!(
+            "Continuous monitoring started (interval: {}s)",
+            interval_secs
+        );
+        let _ = app_clone.emit(
+            "monitor:status",
+            MonitorStatus {
+                is_running: true,
+                next_scan_in: Some(interval_secs),
+            },
+        );
 
         loop {
             // Wait for the interval or cancellation
@@ -77,36 +89,41 @@ pub async fn start_monitor(
             let monitor_state = crate::state::AppState::new(db_pool.clone(), oui_db.clone());
             let scan_cancel = CancellationToken::new();
 
-            let config = ScanConfig {
-                interface_id: "auto".to_string(),
-                scan_type: ScanType::Quick,
-                port_range: PortRange::Top100,
-            };
+            let config = monitor_scan_config(&db_pool);
 
-            match orchestrator::run_scan(app_clone.clone(), &monitor_state, config, scan_cancel).await {
+            match orchestrator::run_scan(app_clone.clone(), &monitor_state, config, scan_cancel)
+                .await
+            {
                 Ok(result) => {
                     log::info!(
                         "Monitor scan completed: {} devices, {} new",
-                        result.devices_found, result.new_devices
+                        result.devices_found,
+                        result.new_devices
                     );
                 }
                 Err(e) => {
                     log::error!("Monitor scan failed: {}", e);
-                    let _ = app_clone.emit("scan:error", e);
+                    let _ = app_clone.emit("scan:error", ScanError { message: e });
                 }
             }
 
             // Emit next scan countdown
-            let _ = app_clone.emit("monitor:status", MonitorStatus {
-                active: true,
-                next_scan_in_secs: Some(interval_secs),
-            });
+            let _ = app_clone.emit(
+                "monitor:status",
+                MonitorStatus {
+                    is_running: true,
+                    next_scan_in: Some(interval_secs),
+                },
+            );
         }
 
-        let _ = app_clone.emit("monitor:status", MonitorStatus {
-            active: false,
-            next_scan_in_secs: None,
-        });
+        let _ = app_clone.emit(
+            "monitor:status",
+            MonitorStatus {
+                is_running: false,
+                next_scan_in: None,
+            },
+        );
         log::info!("Continuous monitoring stopped");
     });
 
@@ -176,4 +193,41 @@ pub async fn ping_device(ip: String) -> Result<PingResult, String> {
         success: latency.is_some(),
         latency_ms: latency,
     })
+}
+
+fn monitor_scan_config(db_pool: &r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>) -> ScanConfig {
+    let settings = db_pool
+        .get()
+        .ok()
+        .and_then(|conn| db_settings::get_settings(&conn).ok());
+
+    match settings {
+        Some(s) => ScanConfig {
+            interface_id: s.default_interface_id.unwrap_or_else(|| "auto".to_string()),
+            scan_type: ScanType::Quick,
+            port_range: parse_port_range(&s.port_range),
+        },
+        None => {
+            log::warn!("Monitor could not load app settings from DB; using default scan config");
+            ScanConfig {
+                interface_id: "auto".to_string(),
+                scan_type: ScanType::Quick,
+                port_range: PortRange::Top100,
+            }
+        }
+    }
+}
+
+fn parse_port_range(port_range: &str) -> PortRange {
+    match port_range {
+        "top1000" => PortRange::Top1000,
+        "top100" => PortRange::Top100,
+        other => {
+            log::warn!(
+                "Unknown settings.port_range '{}'; defaulting monitor scans to top100",
+                other
+            );
+            PortRange::Top100
+        }
+    }
 }
