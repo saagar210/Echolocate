@@ -39,7 +39,7 @@ export function completeScan(): void {
 	scanProgress.set(null);
 }
 
-export function updateMonitorStatus(running: boolean, countdown: number): void {
+export function updateMonitorStatus(running: boolean, countdown: number | null): void {
 	monitoringActive.set(running);
-	nextScanIn.set(countdown);
+	nextScanIn.set(countdown ?? 0);
 }
