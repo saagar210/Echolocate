@@ -4,6 +4,7 @@ import {
 	forceManyBody,
 	forceCenter,
 	forceCollide,
+	forceY,
 	type Simulation,
 	type SimulationNodeDatum,
 	type SimulationLinkDatum
@@ -102,6 +103,7 @@ export function createSimulation(
 ): Simulation<GraphNode, GraphLink> {
 	const repulsion = options?.repulsion ?? 300;
 	const linkDistance = options?.linkDistance ?? 100;
+	const gravity = options?.gravity ?? 0.1;
 
 	const simulation = forceSimulation<GraphNode>(nodes)
 		.force(
@@ -112,6 +114,7 @@ export function createSimulation(
 		)
 		.force('charge', forceManyBody<GraphNode>().strength(-repulsion))
 		.force('center', forceCenter(width / 2, height / 2))
+		.force('gravity', forceY<GraphNode>(height / 2).strength(gravity))
 		.force(
 			'collision',
 			forceCollide<GraphNode>().radius((d) => d.radius + 4)

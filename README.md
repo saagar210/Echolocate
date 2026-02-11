@@ -68,6 +68,7 @@ src/                SvelteKit frontend (Svelte 5 runes)
 
 - [Rust](https://rustup.rs/) (stable)
 - [Node.js](https://nodejs.org/) 18+
+- Linux (for local Rust/Tauri test builds): `glib-2.0` development package installed (provides `glib-2.0.pc`)
 - macOS (network scanning currently uses macOS-specific commands: `arp`, `ifconfig`, `netstat`, `ping`, `host`)
 
 ### Development
@@ -79,7 +80,11 @@ npm install
 # Run in development mode (starts both Vite dev server and Tauri)
 npm run tauri dev
 
-# Run Rust tests (48 tests)
+# Run frontend checks
+npm run check
+npm test
+
+# Run Rust tests (requires glib-2.0 dev package on Linux)
 cd src-tauri && cargo test
 
 # Build for production

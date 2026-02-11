@@ -13,6 +13,7 @@
 	import type { Device } from '$lib/types/device';
 	import type { Simulation } from 'd3-force';
 	import GraphTooltip from './GraphTooltip.svelte';
+	import { settings } from '$lib/stores/settings.svelte';
 
 	let {
 		devices,
@@ -58,10 +59,16 @@
 		resizeObserver?.disconnect();
 	});
 
-	// React to device changes
+	let graphOptions = $derived({
+		repulsion: $settings.graphRepulsion,
+		linkDistance: $settings.graphLinkDistance,
+		gravity: $settings.graphGravity
+	});
+
+	// React to device changes and graph physics settings
 	$effect(() => {
 		if (devices && svgElement) {
-			updateGraph(devices);
+			updateGraph(devices, graphOptions);
 		}
 	});
 
@@ -85,7 +92,7 @@
 		});
 	}
 
-	function updateGraph(deviceList: Device[]) {
+	function updateGraph(deviceList: Device[], options: { repulsion: number; linkDistance: number; gravity: number }) {
 		const graph = devicesToGraph(deviceList);
 
 		// Preserve positions of existing nodes
@@ -114,7 +121,7 @@
 
 		// Restart simulation
 		simulation?.stop();
-		simulation = createSimulation(nodes, links, width, height);
+		simulation = createSimulation(nodes, links, width, height, options);
 
 		simulation.on('tick', () => {
 			// Trigger reactivity by reassigning
@@ -128,7 +135,7 @@
 		}
 	}
 
-	function handleNodeClick(event: MouseEvent, node: GraphNode) {
+	function handleNodeClick(event: Event, node: GraphNode) {
 		event.stopPropagation();
 		onSelectDevice(node.id);
 	}
@@ -177,18 +184,15 @@
 
 	// Public methods for graph controls
 	export function zoomIn() {
-		select(svgElement).transition().duration(300).call(zoomBehavior.scaleBy, 1.3);
+		select(svgElement).call(zoomBehavior.scaleBy, 1.3);
 	}
 
 	export function zoomOut() {
-		select(svgElement).transition().duration(300).call(zoomBehavior.scaleBy, 0.7);
+		select(svgElement).call(zoomBehavior.scaleBy, 0.7);
 	}
 
 	export function fitToScreen() {
-		select(svgElement)
-			.transition()
-			.duration(500)
-			.call(zoomBehavior.transform, zoomIdentity);
+		select(svgElement).call(zoomBehavior.transform, zoomIdentity);
 	}
 
 	function getLinkSource(link: GraphLink): { x: number; y: number } {
@@ -252,7 +256,7 @@
 					class="node cursor-pointer"
 					transform="translate({node.x ?? 0}, {node.y ?? 0})"
 					onclick={(e) => handleNodeClick(e, node)}
-					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNodeClick(e, node); }}
+					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNodeClick(e, node); } }}
 					onmouseenter={(e) => handleNodeMouseEnter(e, node)}
 					onmouseleave={handleNodeMouseLeave}
 					role="button"

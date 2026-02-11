@@ -15,10 +15,10 @@
 
 	function typeIcon(type: string): string {
 		switch (type) {
-			case 'newDevice': return '+';
-			case 'deviceDeparted': return '−';
-			case 'portChanged': return '⇄';
-			case 'unknownDevice': return '?';
+			case 'new_device': return '+';
+			case 'device_departed': return '−';
+			case 'port_changed': return '⇄';
+			case 'unknown_device': return '?';
 			default: return '•';
 		}
 	}
