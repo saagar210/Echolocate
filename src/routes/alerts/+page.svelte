@@ -4,9 +4,9 @@
 	import { markAllAlertsRead } from '$lib/services/tauri-bridge';
 	import { selectedDeviceId } from '$lib/stores/devices.svelte';
 	import { goto } from '$app/navigation';
-	import type { AlertType } from '$lib/types/alert';
+	import type { AlertEventType } from '$lib/types/alert';
 
-	let filter: AlertType | 'all' = $state('all');
+	let filter: AlertEventType | 'all' = $state('all');
 
 	let filteredAlerts = $derived(
 		filter === 'all' ? $alerts : $alerts.filter((a) => a.alertType === filter)
@@ -33,10 +33,10 @@
 		<div class="flex gap-1">
 			{#each [
 				{ value: 'all', label: 'All' },
-				{ value: 'newDevice', label: 'New' },
-				{ value: 'deviceDeparted', label: 'Departed' },
-				{ value: 'portChanged', label: 'Port Change' },
-				{ value: 'unknownDevice', label: 'Unknown' }
+				{ value: 'new_device', label: 'New' },
+				{ value: 'device_departed', label: 'Departed' },
+				{ value: 'port_changed', label: 'Port Change' },
+				{ value: 'unknown_device', label: 'Unknown' }
 			] as option}
 				<button
 					onclick={() => filter = option.value as typeof filter}

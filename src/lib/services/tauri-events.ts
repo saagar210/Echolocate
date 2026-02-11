@@ -15,7 +15,7 @@ export interface EventHandlers {
 	onDeviceUpdated: (device: Device) => void;
 	onDeviceDeparted: (data: { deviceId: string }) => void;
 	onAlertNew: (alert: Alert) => void;
-	onMonitorStatus: (status: { isRunning: boolean; nextScanIn: number }) => void;
+	onMonitorStatus: (status: { isRunning: boolean; nextScanIn: number | null }) => void;
 }
 
 const EVENT_NAMES = {
@@ -56,7 +56,7 @@ export async function subscribeAll(handlers: EventHandlers): Promise<UnlistenFn[
 		listen<Alert>(EVENT_NAMES.ALERT_NEW, (event) => {
 			handlers.onAlertNew(event.payload);
 		}),
-		listen<{ isRunning: boolean; nextScanIn: number }>(EVENT_NAMES.MONITOR_STATUS, (event) => {
+		listen<{ isRunning: boolean; nextScanIn: number | null }>(EVENT_NAMES.MONITOR_STATUS, (event) => {
 			handlers.onMonitorStatus(event.payload);
 		})
 	]);

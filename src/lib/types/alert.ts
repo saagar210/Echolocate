@@ -1,10 +1,12 @@
-export type AlertType = 'newDevice' | 'deviceDeparted' | 'portChanged' | 'unknownDevice';
+export type AlertEventType = 'new_device' | 'device_departed' | 'port_changed' | 'unknown_device';
+
+export type AlertRuleType = 'new_device' | 'device_departed' | 'port_changed' | 'untrusted_device';
 
 export type Severity = 'info' | 'warning' | 'critical';
 
 export interface Alert {
 	id: string;
-	alertType: AlertType;
+	alertType: AlertEventType;
 	deviceId: string | null;
 	message: string;
 	severity: Severity;
@@ -14,7 +16,7 @@ export interface Alert {
 
 export interface AlertRule {
 	id: string;
-	ruleType: AlertType;
+	ruleType: AlertRuleType;
 	isEnabled: boolean;
 	severity: Severity;
 	notifyDesktop: boolean;
