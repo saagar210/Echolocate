@@ -1,9 +1,12 @@
 pub mod alerts;
 pub mod commands;
 pub mod db;
+pub mod error;
 pub mod network;
 pub mod scanner;
 pub mod state;
+
+pub use error::{AppError, TauriResult};
 
 use tauri::Manager;
 
