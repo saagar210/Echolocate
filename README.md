@@ -4,7 +4,7 @@ A desktop network discovery and topology visualizer. See every device on your ne
 
 Built with **Tauri 2** (Rust backend) + **SvelteKit** (Svelte 5 frontend) + **SQLite**.
 
-> **Status: Alpha → Phase 1** — Core functionality implemented and compiles cleanly. Currently executing **Definitive Implementation Plan** for production 1.0 (13-week roadmap). Phase 1 (Secure & Stabilize) in progress: input validation, error handling, and CI/CD infrastructure.
+> **Status: Alpha → Phase 2** — Core functionality implemented with **cross-platform support** (macOS, Linux, Windows). Executing **Definitive Implementation Plan**: Phase 1 ✅ (Secure & Stabilize), Phase 2.1 ✅ (Cross-Platform Scanner), Phases 2.2-6 📋 (Testing, Features, Release, Polish).
 
 ## What It Does
 
@@ -64,30 +64,109 @@ src/                SvelteKit frontend (Svelte 5 runes)
 
 ## Getting Started
 
-### Prerequisites
+### Prerequisites (All Platforms)
 
-- [Rust](https://rustup.rs/) (stable)
+- [Rust](https://rustup.rs/) stable
 - [Node.js](https://nodejs.org/) 18+
-- Linux (for local Rust/Tauri test builds): `glib-2.0` development package installed (provides `glib-2.0.pc`)
-- macOS (network scanning currently uses macOS-specific commands: `arp`, `ifconfig`, `netstat`, `ping`, `host`)
 
-### Development
+### macOS Setup
+
+**System Requirements:**
+- macOS 10.12+
+- Xcode Command Line Tools
+
+**Installation:**
+```bash
+xcode-select --install
+```
+
+**Development:**
+```bash
+npm install
+npm run tauri dev
+```
+
+**Build:**
+```bash
+npm run tauri build
+# Output: src-tauri/target/release/bundle/macos/Echolocate.app
+```
+
+### Linux Setup
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  libglib2.0-dev libssl-dev pkg-config \
+  libgtk-3-dev libappindicator3-dev librsvg2-dev \
+  libayatana-appindicator3-dev
+```
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install -y \
+  glib2-devel openssl-devel pkgconfig \
+  gtk3-devel libappindicator-gtk3-devel \
+  librsvg2-devel
+```
+
+**Development:**
+```bash
+npm install
+npm run tauri dev
+```
+
+**Build:**
+```bash
+npm run tauri build
+# Output: src-tauri/target/release/bundle/appimage/Echolocate_*.AppImage
+```
+
+### Windows Setup
+
+**System Requirements:**
+- Windows 10+
+- Visual C++ Build Tools (auto-installed with Rust)
+- PowerShell 5.0+ (included with Windows 10+)
+
+**Development:**
+```bash
+npm install
+npm run tauri dev
+```
+
+**Build:**
+```bash
+npm run tauri build
+# Output: src-tauri/target/release/bundle/msi/Echolocate_*.msi
+```
+
+### Development Commands (All Platforms)
 
 ```bash
-# Install frontend dependencies
+# Install dependencies
 npm install
 
-# Run in development mode (starts both Vite dev server and Tauri)
+# Start dev server with Tauri hot reload
 npm run tauri dev
 
-# Run frontend checks
+# Run frontend type checks
 npm run check
+
+# Run frontend tests (after Vitest setup in Phase 3)
 npm test
 
-# Run Rust tests (requires glib-2.0 dev package on Linux)
+# Run Rust unit tests
+cd src-tauri && cargo test --lib
+
+# Run Rust integration tests
+cd src-tauri && cargo test --test integration_test
+
+# Run all tests
 cd src-tauri && cargo test
 
-# Build for production
+# Build production binaries
 npm run tauri build
 ```
 
@@ -95,7 +174,7 @@ npm run tauri build
 
 | Shortcut | Action |
 |----------|--------|
-| `Cmd+R` | Quick scan |
+| `Cmd+R` or `Ctrl+R` | Quick scan |
 | `Escape` | Deselect device |
 
 ## Test Coverage
