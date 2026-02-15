@@ -81,6 +81,7 @@ mod tests {
         assert!(tables.contains(&"scans".to_string()));
         assert!(tables.contains(&"alerts".to_string()));
         assert!(tables.contains(&"alert_rules".to_string()));
+        assert!(tables.contains(&"custom_alert_rules".to_string()));
         assert!(tables.contains(&"settings".to_string()));
     }
 

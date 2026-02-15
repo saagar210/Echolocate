@@ -103,6 +103,20 @@ CREATE TABLE alert_rules (
     created_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Custom alert rules (user-defined with complex conditions)
+CREATE TABLE custom_alert_rules (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    is_enabled BOOLEAN DEFAULT 1,
+    conditions TEXT NOT NULL, -- JSON string with condition tree
+    severity TEXT NOT NULL DEFAULT 'info',
+    notify_desktop BOOLEAN DEFAULT 1,
+    webhook_url TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
 -- App settings (key-value store)
 CREATE TABLE settings (
     key TEXT PRIMARY KEY,
@@ -117,6 +131,7 @@ CREATE INDEX idx_device_ports_device ON device_ports(device_id, scan_id);
 CREATE INDEX idx_latency_device_time ON latency_history(device_id, measured_at DESC);
 CREATE INDEX idx_alerts_unread ON alerts(is_read) WHERE is_read = 0;
 CREATE INDEX idx_scans_started ON scans(started_at DESC);
+CREATE INDEX idx_custom_rules_enabled ON custom_alert_rules(is_enabled) WHERE is_enabled = 1;
 
 -- Seed default alert rules
 INSERT INTO alert_rules (id, rule_type, is_enabled, severity, notify_desktop) VALUES
