@@ -2,14 +2,14 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import '../app.css';
-	import { getDevices, getAlerts, getSettings, getInterfaces, getAlertRules, startScan } from '$lib/services/tauri-bridge';
+	import { getDevices, getAlerts, getSettings, getInterfaces, startScan } from '$lib/services/tauri-bridge';
 	import { subscribeAll, unsubscribeAll } from '$lib/services/tauri-events';
 	import { setDevices, upsertDevice, markDeparted, devices, onlineCount } from '$lib/stores/devices.svelte';
 	import { updateProgress, completeScan, updateMonitorStatus, isScanning } from '$lib/stores/scan.svelte';
 	import { selectedDeviceId } from '$lib/stores/devices.svelte';
 	import { setAlerts, addAlert, unreadCount } from '$lib/stores/alerts.svelte';
 	import { setSettings, setInterfaces } from '$lib/stores/settings.svelte';
-	import { errorStore } from '$lib/stores/error.svelte.ts';
+	import { errorStore, type AppError } from '$lib/stores/error.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import type { Snippet } from 'svelte';
@@ -49,7 +49,12 @@
 				onScanError: (error) => {
 					console.error('Scan error:', error);
 					// Show error to user via toast
-					errorStore.addError(error);
+					const scanError: AppError = {
+						code: 'SCAN_FAILED',
+						message: error.message,
+						timestamp: new Date().toISOString()
+					};
+					errorStore.addError(scanError);
 					completeScan();
 				},
 				onDeviceUpdated: (device) => upsertDevice(device),

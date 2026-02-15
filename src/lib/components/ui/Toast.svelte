@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { errorStore } from '../../stores/error.svelte.ts';
+  import { errorStore } from '../../stores/error.svelte';
 
   const iconMap: Record<string, string> = {
     INVALID_INPUT: '⚠️',
