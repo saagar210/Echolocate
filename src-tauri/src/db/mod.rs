@@ -1,6 +1,8 @@
 pub mod cache;
+pub mod encryption;
 pub mod migrations;
 pub mod queries;
+pub mod recovery;
 
 use std::path::Path;
 
