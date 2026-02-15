@@ -70,6 +70,8 @@ pub fn run() {
             commands::settings::ping_device,
             commands::export::export_devices,
             commands::export::import_devices,
+            commands::export::export_devices_encrypted,
+            commands::export::import_devices_encrypted,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
