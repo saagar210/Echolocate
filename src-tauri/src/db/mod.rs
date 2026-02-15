@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod migrations;
 pub mod queries;
 
