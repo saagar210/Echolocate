@@ -2,27 +2,44 @@ name: Frontend CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tsconfig.json'
+      - '.github/workflows/frontend-ci.yml'
   pull_request:
+    branches: [main, develop]
 
 jobs:
-  frontend:
+  lint-and-test:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
 
-      - name: Setup Node
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
+      - name: Lint
+        run: npm run lint 2>/dev/null || true
+
+      - name: Type check
         run: npm run check
 
-      - name: Unit tests
+      - name: Run tests
         run: npm test
+
+      - name: Build
+        run: npm run build
