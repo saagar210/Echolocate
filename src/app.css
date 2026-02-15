@@ -36,7 +36,6 @@ body {
 	height: 100vh;
 }
 
-/* Monospace for network data */
 .font-mono {
 	font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
 }
