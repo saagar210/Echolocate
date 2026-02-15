@@ -9,6 +9,8 @@
 	import { selectedDeviceId } from '$lib/stores/devices.svelte';
 	import { setAlerts, addAlert, unreadCount } from '$lib/stores/alerts.svelte';
 	import { setSettings, setInterfaces } from '$lib/stores/settings.svelte';
+	import { errorStore } from '$lib/stores/error.svelte.ts';
+	import Toast from '$lib/components/ui/Toast.svelte';
 	import type { UnlistenFn } from '@tauri-apps/api/event';
 	import type { Snippet } from 'svelte';
 
@@ -45,7 +47,9 @@
 				onDeviceDiscovered: (device) => upsertDevice(device),
 				onScanCompleted: () => completeScan(),
 				onScanError: (error) => {
-					console.error('Scan error:', error.message);
+					console.error('Scan error:', error);
+					// Show error to user via toast
+					errorStore.addError(error);
 					completeScan();
 				},
 				onDeviceUpdated: (device) => upsertDevice(device),
@@ -87,6 +91,9 @@
 </script>
 
 <div class="flex h-screen flex-col bg-bg-primary text-text-primary">
+	<!-- Global error toast -->
+	<Toast />
+
 	<!-- Top navigation bar -->
 	<header class="flex h-12 items-center justify-between border-b border-border bg-bg-secondary px-4">
 		<div class="flex items-center gap-4">
