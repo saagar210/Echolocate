@@ -10,8 +10,11 @@ pub struct NetworkInterface {
     pub name: String,
     pub ip_address: Option<String>,
     pub subnet_mask: Option<String>,
+    pub ipv6_address: Option<String>,
+    pub ipv6_prefix: Option<u8>,
     pub mac_address: Option<String>,
     pub gateway_ip: Option<String>,
+    pub gateway_ipv6: Option<String>,
     pub is_active: bool,
 }
 
