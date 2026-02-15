@@ -7,7 +7,7 @@ use crate::alerts::{engine as alert_engine, notifier};
 use crate::db::queries::{devices as db_devices, ports as db_ports, scans as db_scans};
 use crate::network::resolver;
 use crate::scanner::{
-    fingerprint, passive, ping, port, PortRange, ScanConfig, ScanResult, ScanType,
+    fingerprint, ipv6, passive, ping, port, PortRange, ScanConfig, ScanResult, ScanType,
 };
 use crate::state::AppState;
 
@@ -57,8 +57,28 @@ pub async fn run_scan(
         return fail_scan(state, &scan_id, "Scan cancelled");
     }
 
-    // Phase 1: Device discovery (passive ARP table scan)
-    let discovered = passive::scan_arp_table();
+    // Phase 1: Device discovery (passive ARP table scan for IPv4)
+    let mut discovered = passive::scan_arp_table();
+
+    // Phase 1.5: IPv6 device discovery (if available)
+    if let Ok(ipv6_devices) = ipv6::discover_ipv6_devices() {
+        for ipv6_dev in ipv6_devices {
+            // Skip link-local addresses (fe80::/10) as they're interface-local
+            if ipv6_dev.is_link_local {
+                continue;
+            }
+
+            // Add IPv6 device to discovered list
+            // Note: IPv6 addresses don't directly resolve via MAC, so MAC might be None
+            discovered.push(crate::scanner::DiscoveredDevice {
+                ip: ipv6_dev.ip_address,
+                mac: ipv6_dev.mac_address,
+                hostname: ipv6_dev.hostname,
+                is_gateway: false, // Gateway detection for IPv6 needs separate logic
+            });
+        }
+    }
+
     let device_count = discovered.len() as u32;
 
     emit_progress(&app, &scan_id, "discovery", device_count, 20.0);
