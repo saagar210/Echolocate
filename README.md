@@ -4,7 +4,7 @@ A desktop network discovery and topology visualizer. See every device on your ne
 
 Built with **Tauri 2** (Rust backend) + **SvelteKit** (Svelte 5 frontend) + **SQLite**.
 
-> **Status: Alpha** — Core functionality is implemented and compiles cleanly. The app discovers devices, scans ports, fingerprints operating systems, and renders an interactive topology graph. Not yet tested in production environments.
+> **Status: Alpha → Phase 1** — Core functionality implemented and compiles cleanly. Currently executing **Definitive Implementation Plan** for production 1.0 (13-week roadmap). Phase 1 (Secure & Stabilize) in progress: input validation, error handling, and CI/CD infrastructure.
 
 ## What It Does
 
@@ -107,12 +107,53 @@ npm run tauri build
 - **Fingerprint**: OS detection (iOS/macOS/Windows/Linux/Android), device classification
 - **Alerts**: New device, untrusted device, departed device, trusted device exclusion
 
-## Known Limitations
+## Implementation Roadmap (13-Week Plan to 1.0)
 
-- **macOS only** — Network commands (`arp -a`, `ifconfig`, `netstat -rn`) are macOS-specific. Linux/Windows support would require platform-specific implementations.
-- **No privileged scanning** — Uses passive ARP table reading, not raw socket ARP requests. Requires devices to have communicated recently.
-- **Top 1000 ports** — Currently maps to Top 100 (placeholder).
-- **No IPv6** — Discovery and scanning is IPv4 only.
+A comprehensive **Definitive Implementation Plan** governs all development:
+
+### Phase 1: Secure & Stabilize (Weeks 1-2) — **IN PROGRESS**
+- ✅ Input validation layer (IP, port, hostname, device name validation)
+- ✅ AppError type with structured error codes and context
+- 🔄 Error event emission from backend to frontend
+- 🔄 Error store and Toast notification UI
+- 📋 Rust backend CI pipeline (GitHub Actions for all platforms)
+
+### Phase 2: Cross-Platform (Weeks 3-5)
+- Linux scanner implementation (`ip neigh`, `ip addr` instead of `arp`/`ifconfig`)
+- Windows scanner implementation (PowerShell commands)
+- Integration tests (full scan workflows)
+- CI matrix for Linux, macOS, Windows
+- Platform-specific README instructions
+
+### Phase 3: Test & Validate (Weeks 6-7)
+- Vitest setup for frontend component tests
+- Component tests for all 13 UI components
+- E2E tests with Tauri driver (user workflows)
+- Error scenario tests (missing commands, malformed input, DB corruption)
+
+### Phase 4: User Features (Weeks 8-9)
+- Custom alert rules UI (users create conditions)
+- IPv6 support (discovery and scanning)
+- Performance optimization (pagination, graph culling)
+
+### Phase 5: Release & Distribution (Weeks 10-11)
+- GitHub Actions release pipeline (build binaries for all platforms)
+- Binary signing and notarization
+- GitHub Releases with downloadable installers
+
+### Phase 6: Polish & Harden (Weeks 12-13)
+- Database encryption (sqlcipher)
+- Export encryption UI
+- Error recovery and graceful degradation
+
+**Full Plan Document:** See `IMPLEMENTATION_PLAN.md` (auto-generated from definitive plan).
+
+## Known Limitations (Phase 1 Status)
+
+- **macOS only** (Phase 2 adds Linux/Windows) — Network commands are platform-specific
+- **No IPv6** (Phase 4B adds IPv6) — Discovery and scanning is IPv4 only
+- **Top 100 ports only** (not yet parameterized) — Placeholder for port range selection
+- **No custom alert rules** (Phase 4A) — Rules are hardcoded, UI allows enable/disable only
 
 ## License
 
