@@ -8,7 +8,11 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "lean:dev": "bash scripts/lean-dev.sh",
+    "clean:heavy": "bash scripts/clean-heavy.sh",
+    "clean:local": "bash scripts/clean-local-all.sh",
+    "size:report": "bash scripts/disk-usage.sh"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.0",
