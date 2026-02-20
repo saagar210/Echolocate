@@ -24,7 +24,7 @@
     "@types/d3-force": "^3.0.0",
     "@types/d3-selection": "^3.0.0",
     "@types/d3-zoom": "^3.0.0",
-    "svelte": "^5.0.0",
+    "svelte": "^5.53.0",
     "svelte-check": "^4.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.0.0",
